@@ -38,5 +38,5 @@ def remove_old_zone(
     zone: str
 ):
     with open_socket() as ctl:
-        with conf_transaction() as ctl:
+        with conf_transaction(ctl):
             remove_zone(ctl, zone)
