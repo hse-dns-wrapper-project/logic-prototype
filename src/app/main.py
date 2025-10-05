@@ -10,8 +10,8 @@ def read_root():
 
 from fastapi.responses import JSONResponse
 
-from app.knot.transactions import open_socket, zone_transaction
-from app.knot.dns_zone import get_zone, get_zones_list, add_zone
+from app.knot.transactions import open_socket, zone_transaction, conf_transaction
+from app.knot.dns_zone import get_zone, get_zones_list, add_zone, remove_zone
 
 @app.get("/zone")
 def get_all_zones():
@@ -30,4 +30,13 @@ def add_new_zone(
     zone: str
 ):
     with open_socket() as ctl:
-        add_zone(ctl, zone)
+        with conf_transaction(ctl):
+            add_zone(ctl, zone)
+
+@app.delete("/zone")
+def remove_old_zone(
+    zone: str
+):
+    with open_socket() as ctl:
+        with conf_transaction() as ctl:
+            remove_zone(ctl, zone)
