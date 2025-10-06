@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from app.knot.transactions import open_socket, zone_transaction, conf_transaction
 from app.knot.dns_zone import get_zone_by_name, get_zones_list, add_zone, remove_zone
-from app.knot.dns_record import get_record_data_type, Record, ARecord, AAAARecord, RecordUniqueKey, add_record_raw, add_record, remove_record, get_records_data
+from app.knot.dns_record import get_record_data_type, Record, ARecord, AAAARecord, RecordUniqueKey, add_record_raw, add_record, remove_record, get_record
 
 standard_ttl = 300
 
@@ -72,11 +72,8 @@ def add_record_A(
             add_record(
                 ctl,
                 Record(
-                    RecordUniqueKey(
-                        zone_domain,
-                        subdomain,
-                        ARecord
-                    ),
+                    zone_domain,
+                    subdomain,
                     ARecord(ipv4)
                 ), ttl)
 
@@ -94,34 +91,43 @@ def add_record_AAAA(
             add_record(
                 ctl,
                 Record(
-                    RecordUniqueKey(
-                        zone_domain,
-                        subdomain,
-                        AAAARecord
-                    ),
-                    ARecord(ipv6)
+                    zone_domain,
+                    subdomain,
+                    AAAARecord(ipv6)
                 ), ttl)
 
 @app.delete("/zone/{zone_domain}/record")
 def remove_old_record(
     zone_domain,
     subdomain,
-    record_type
+    record_type,
+    unique_key_data = ""
 ):
     with open_socket() as ctl:
         with zone_transaction(ctl, zone_domain):
             record_type_cls = get_record_data_type(record_type)
-            key = RecordUniqueKey(zone_domain, subdomain, record_type_cls)
+            key = RecordUniqueKey(
+                zone_domain,
+                subdomain,
+                record_type_cls,
+                unique_key_data,
+            )
             remove_record(ctl, key)
 
 @app.get("/zone/{zone_domain}/record")
-def get_records_info(
+def get_record_info(
     zone_domain,
     subdomain,
-    record_type
+    record_type,
+    unique_key_data = ""
 ):
     with open_socket() as ctl:
         record_type_cls = get_record_data_type(record_type)
-        key = RecordUniqueKey(zone_domain, subdomain, record_type_cls)
-        data_list = get_records_data(ctl, key)
-        return JSONResponse(list((data.to_dict() for data in data_list)))
+        key = RecordUniqueKey(
+            zone_domain,
+            subdomain,
+            record_type_cls,
+            unique_key_data
+        )
+        record = get_record(ctl, key)
+        return JSONResponse(record.to_dict() if record is not None else None)
