@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from app.knot.transactions import open_socket, zone_transaction, conf_transaction
 from app.knot.dns_zone import get_zone_by_name, get_zones_list, add_zone, remove_zone
-from app.knot.dns_record import get_record_data_type, Record, ARecord, AAAARecord, RecordUniqueKey, add_record_raw, add_record, remove_record, get_record
+from app.knot.dns_record import set_record, remove_record, get_records
 
 standard_ttl = 300
 
@@ -45,7 +45,7 @@ def remove_old_zone(
             remove_zone(ctl, zone_domain)
 
 @app.post("/zone/{zone_domain}/record")
-def add_new_record_raw(
+def set_new_record(
     zone_domain,
     subdomain,
     record_type,
@@ -56,45 +56,14 @@ def add_new_record_raw(
 
     with open_socket() as ctl:
         with zone_transaction(ctl, zone_domain):
-            add_record_raw(ctl, zone_domain, subdomain, record_type, data, ttl)
-
-@app.post("/zone/{zone_domain}/record/type/A")
-def add_record_A(
-    zone_domain,
-    subdomain,
-    ipv4
-):
-    global standard_ttl
-    ttl = standard_ttl
-
-    with open_socket() as ctl:
-        with zone_transaction(ctl, zone_domain):
-            add_record(
+            set_record(
                 ctl,
-                Record(
-                    zone_domain,
-                    subdomain,
-                    ARecord(ipv4)
-                ), ttl)
-
-@app.post("/zone/{zone_domain}/record/type/AAAA")
-def add_record_AAAA(
-    zone_domain,
-    subdomain,
-    ipv6
-):
-    global standard_ttl
-    ttl = standard_ttl
-
-    with open_socket() as ctl:
-        with zone_transaction(ctl, zone_domain):
-            add_record(
-                ctl,
-                Record(
-                    zone_domain,
-                    subdomain,
-                    AAAARecord(ipv6)
-                ), ttl)
+                zone_domain,
+                subdomain,
+                record_type,
+                data,
+                ttl
+            )
 
 @app.delete("/zone/{zone_domain}/record")
 def remove_old_record(
@@ -105,29 +74,27 @@ def remove_old_record(
 ):
     with open_socket() as ctl:
         with zone_transaction(ctl, zone_domain):
-            record_type_cls = get_record_data_type(record_type)
-            key = RecordUniqueKey(
+            remove_record(
+                ctl,
                 zone_domain,
                 subdomain,
-                record_type_cls,
-                unique_key_data,
+                record_type,
+                unique_key_data
             )
-            remove_record(ctl, key)
 
 @app.get("/zone/{zone_domain}/record")
-def get_record_info(
+def get_records_info(
     zone_domain,
     subdomain,
     record_type,
     unique_key_data = ""
 ):
     with open_socket() as ctl:
-        record_type_cls = get_record_data_type(record_type)
-        key = RecordUniqueKey(
+        record = get_records(
+            ctl,
             zone_domain,
             subdomain,
-            record_type_cls,
+            record_type,
             unique_key_data
         )
-        record = get_record(ctl, key)
-        return JSONResponse(record.to_dict() if record is not None else None)
+        return JSONResponse(record)
